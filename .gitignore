@@ -118,6 +118,20 @@ _Chutzpah*
 
 # Visual C++ cache files
 ipch/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+env/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
 *.aps
 *.ncb
 *.opendb
