@@ -1,0 +1,75 @@
+﻿<!-- azure-cor-disclaimer -->
+> **Important:** This skill provides guidance and recommended instructions to assist the AI system. Outputs are not guaranteed to be complete, correct, secure, or applicable to every scenario. Results should be reviewed and validated by a human before being applied. The AI model may choose not to follow all instructions exactly, and additional verification may be required.
+
+# Prepare â€” Architecture Planning & Cost Estimation
+
+## Quick Reference
+
+| Property | Value |
+|----------|-------|
+| Best for | Mapping app components to Azure services with cost estimation and quota validation |
+| Inputs | `prereq-output.json` + `context.json` from `.copilot-azure/sessions/{id}/` |
+| Outputs | `prepare-plan.json` written to session directory |
+| Parent | [azure-app-onboard](../instructions.md) |
+
+## When to Use This Agent
+
+Invoked by the `azure-app-onboard` orchestrator at Phase 2 when `prereq-output.json` exists. Not directly user-routable.
+
+> **Return to orchestrator:** When complete, return control to `azure-app-onboard`. Do NOT directly invoke scaffold or deploy.
+
+## When NOT to Use
+
+| Scenario | Use Instead |
+|----------|-------------|
+| Code readiness or prereq scanning | `azure-app-onboard` Step 3 (prereq) |
+| IaC generation from a completed plan | `azure-app-onboard` Step 7 (scaffold) |
+| Deploying resources to Azure | `azure-app-onboard` Step 9 (deploy) |
+| Optimizing existing Azure spend | `azure-cost` |
+| Estimating VM-specific costs | `azure-compute` |
+| Enterprise landing zone architecture | `azure-enterprise-infra-planner` |
+
+## MCP Tools
+
+| Tool | Purpose |
+|------|----------|
+| `mcp_azure_mcp_pricing` / `azure-pricing` (router â†’ `command: pricing_get`) | Cost estimation (inline â€” see Step 6). Fallback: dispatch [`subagent-pricing.md`](references/subagent-pricing.md) |
+| `mcp_azure_mcp_policy` | Subscription policy constraints |
+| `az rest` | Quota validation (via sub-agent â€” see Step 5) |
+| `mcp_azure_mcp_cloudarchitect` â†’ `cloudarchitect_design` | WAF-aligned architecture design |
+| `mcp_azure_mcp_wellarchitectedframework` | Per-service WAF guidance |
+| `mcp_azure_mcp_advisor` â†’ `advisor_recommendation_list` | Optimization recommendations |
+
+## Workflow
+
+| # | Step | Action | Reference |
+|---|------|--------|-----------|
+| 1 | **Read session state** | Load `prereq-output.json` + `context.json`. Resolve subscription | Cross-ref [subscription-resolution.md](../references/subscription-resolution.md) if needed |
+| 2 | **Query policy constraints** | Inline MCP: fetch policy + advisor recommendations | `mcp_azure_mcp_policy` + `mcp_azure_mcp_advisor` |
+| 3 | **Map components to services** | Per-component Azure service selection, Dockerfile routing, deploy-as-is. â›” Existing Azure Functions components MUST remain separate Azure Functions services. | â›” **You MUST read [service-mapping.md](references/service-mapping.md) and [deploy-strategy.md](references/deploy-strategy.md)** |
+| 4 | **Select SKUs + WAF analysis** | Budget-aware SKU selection, inline WAF service guidance | â›” **You MUST read [sku-matrix.md](references/sku-matrix.md)** |
+| 5 | **Validate quotas + region capacity** | â›” Read [`subagent-quota.md`](references/subagent-quota.md) â†’ dispatch as `task` (NEXT action MUST be `task`, â›” agent_type: `"task"` â€” NEVER `"general-purpose"`). Copy the **COMPLETE and UNMODIFIED** template text into the task prompt between `<<<TEMPLATE_START>>>` / `<<<TEMPLATE_END>>>` delimiters â€” do NOT summarize. Append the caller-provided inputs listed in [`subagent-quota.md`](references/subagent-quota.md)'s Input table AFTER the template block. â›” **After dispatching, proceed to Step 6 (cost estimation) while the subagent runs. Do NOT run quota checks yourself â€” the subagent handles it. Collect subagent results before Step 9 (write plan).** | â›” **You MUST read [`subagent-quota.md`](references/subagent-quota.md)** |
+| 6 | **Estimate costs** | â›” **You MUST read [pricing-guide.md](references/pricing-guide.md)** for methodology, then [pricing-guide-services.md](references/pricing-guide-services.md) for per-service filters. Call the pricing router (`mcp_azure_mcp_pricing`/`azure-pricing`) with `command: "pricing_get"` + a `parameters{}` object inline per paid service. If MCP unavailable or fails â†’ â›” Read [`subagent-pricing.md`](references/subagent-pricing.md) â†’ dispatch as `task` (NEXT action MUST be `task`, â›” agent_type: `"task"` â€” NEVER `"general-purpose"`). Copy the **COMPLETE and UNMODIFIED** template text into the task prompt between `<<<TEMPLATE_START>>>` / `<<<TEMPLATE_END>>>` delimiters â€” do NOT summarize. Append data (services[], region, budget tier) AFTER the template block. Write results to `prepare-plan.json.costEstimate`. | [pricing-guide.md](references/pricing-guide.md) |
+| 7 | **Generate naming** | Centralized naming: suffix, prefix, all resource names | â›” **You MUST read [naming-patterns.md](references/naming-patterns.md)** |
+| 8 | **Determine IaC format** | Existing non-Azure `.tf` â†’ `ask_user` Bicep vs TF, write to `overrides[].iacFormat`. No `.tf` â†’ default Bicep. | (inline) |
+| 9 | **Write prepare-plan.json** | Per `PreparePlan` schema. Include postDeployRecommendations, deploymentVariables | â›” **You MUST read [prepare-schemas.ts](references/prepare-schemas.ts)** for `PreparePlan` schema |
+| 10 | **Return summary** | Structured summary for orchestrator approval gate | (inline â€” 1 line) |
+| 11 | **Validate plan** | 4-dimension check: Goal Alignment, WAF Alignment, Dependency Completeness, Deployment Viability. Fix inline on failure, document tradeoffs in `assumptions[]`. | All must pass before writing |
+
+### Step 5 â€” Post-Quota Validation
+
+> â›” **NEVER present a region without checking quota first.** Skipping quota validation causes cascading deploy failures and extended healing loops.
+> â›” If plan includes PostgreSQL/MySQL, verify `offerRestrictionsVerified: true` â€” if false/missing, region is blocked. Do NOT proceed to scaffold with unchecked DB services.
+> â›” **Paid â‰  unlimited.** Every compute SKU â€” including B1, Consumption, and Serverless tiers â€” has a per-subscription, per-region quota. Do NOT skip quota checks. (F1/D1/Free are never selected â€” the compute floor is B1.)
+> â›” After region fallback, update ALL `services[].region` in `prepare-plan.json`. Do not leave stale values.
+
+## Error Handling
+
+| Error | Remediation |
+|-------|-------------|
+| Pricing API 400 | Verify `--sku` included in the query |
+| MCP pricing unavailable | Dispatch [`subagent-pricing.md`](references/subagent-pricing.md) as `task` fallback (uses direct HTTP to `prices.azure.com`) |
+| Prereq output missing | Trigger prereq backfill |
+| Quota check fails | Fall back to best-effort estimate + disclaimer |
+| Override conflicts | Re-run from Step 3 with new constraints |
+
