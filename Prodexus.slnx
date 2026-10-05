@@ -1,6 +1,7 @@
 ﻿<Solution>
   <Folder Name="/src/">
     <Project Path="src/Prodexus.Functions/Prodexus.Functions.csproj" />
+    <Project Path="src/Prodexus.Data/Prodexus.Data.csproj" />
     <Project Path="src/Prodexus.Tests/Prodexus.Tests.csproj" />
   </Folder>
 </Solution>

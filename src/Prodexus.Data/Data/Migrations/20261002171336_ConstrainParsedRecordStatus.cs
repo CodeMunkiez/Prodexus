@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace Prodexus.Functions.Data.Migrations
+namespace Prodexus.Data.Migrations
 {
     /// <inheritdoc />
     public partial class ConstrainParsedRecordStatus : Migration

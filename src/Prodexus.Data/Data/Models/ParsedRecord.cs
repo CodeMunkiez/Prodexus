@@ -1,4 +1,4 @@
-﻿namespace Prodexus.Functions.Data.Models;
+﻿namespace Prodexus.Data.Models;
 
 public sealed class ParsedRecord
 {

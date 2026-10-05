@@ -1,4 +1,4 @@
-﻿using Prodexus.Functions.Data;
+﻿using Prodexus.Data;
 using Prodexus.Functions.Mapping;
 using Prodexus.Functions.Services;
 using Microsoft.Azure.Functions.Worker.Builder;

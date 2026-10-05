@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace Prodexus.Functions.Data;
+namespace Prodexus.Data;
 
 public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {

@@ -1,5 +1,5 @@
-﻿using Prodexus.Functions.Data;
-using Prodexus.Functions.Data.Models;
+﻿using Prodexus.Data;
+using Prodexus.Data.Models;
 
 namespace Prodexus.Functions.Services;
 

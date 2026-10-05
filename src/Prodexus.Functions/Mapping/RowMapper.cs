@@ -1,4 +1,4 @@
-﻿using Prodexus.Functions.Data.Models;
+﻿using Prodexus.Data.Models;
 
 namespace Prodexus.Functions.Mapping;
 
